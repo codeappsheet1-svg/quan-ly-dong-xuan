@@ -1,0 +1,6 @@
+{
+  "name": "Hệ thống Quản lý Nội bộ Trường TH & THCS Đồng Xuân",
+  "description": "Hệ thống Quản lý nội bộ trường học chuyên về nhân sự, chuyên môn, cơ sở vật chất, dạy thay, nghỉ phép, phân hiệu do Hiệu trưởng Nguyễn Quốc Bảo tự xây dựng.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
