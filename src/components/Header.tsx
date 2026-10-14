@@ -39,6 +39,8 @@ interface HeaderProps {
   allSchoolYears: string[];
   onChangeSchoolYear: (year: string) => void;
   onOpenYearTransition: () => void;
+  onOpenApprovalCenter?: () => void;
+  totalPendingApprovals?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -62,6 +64,8 @@ export const Header: React.FC<HeaderProps> = ({
   allSchoolYears = ['2025-2026', '2026-2027', '2027-2028'],
   onChangeSchoolYear,
   onOpenYearTransition,
+  onOpenApprovalCenter,
+  totalPendingApprovals = 0,
 }) => {
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -163,9 +167,12 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-3 text-slate-400 text-[11px]">
-          <span className="hidden sm:inline">Thôn Long Châu, Xã Đồng Xuân, Tỉnh Đắk Lắk</span>
+          <span className="hidden sm:inline">Thôn Long Châu, Xã Đồng Xuân, Tỉnh Phú Yên</span>
           <span className="text-slate-600">|</span>
-          <span className="font-mono text-emerald-400">Google Sheets Sync: Hoạt động</span>
+          <span className="font-mono text-emerald-400 flex items-center gap-1 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            Firestore Cloud: Hoạt động (Dữ liệu thật)
+          </span>
         </div>
       </div>
 
@@ -192,8 +199,26 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Right Controls: School Year Selector, Role Switcher, Print, User Badge */}
+          {/* Right Controls: HT Approval Hub, School Year Selector, Role Switcher, Print, User Badge */}
           <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Direct Principal Approval Center Button */}
+            {onOpenApprovalCenter && (
+              <button
+                type="button"
+                onClick={onOpenApprovalCenter}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-700 to-amber-600 hover:from-red-800 hover:to-amber-700 text-white text-xs font-bold shadow-md transition active:scale-95 border border-amber-300/40"
+                title="Mở trung tâm Trình & Phê duyệt trực tuyến của Hiệu trưởng"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                <span>Trình & Duyệt HT</span>
+                {totalPendingApprovals > 0 && (
+                  <span className="ml-0.5 px-1.5 py-0.2 bg-amber-400 text-slate-900 text-[10px] font-black rounded-full shadow-xs">
+                    {totalPendingApprovals}
+                  </span>
+                )}
+              </button>
+            )}
+
             {/* School Year Selector */}
             <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 p-1 rounded-xl">
               <span className="text-[11px] font-bold text-slate-500 pl-1.5 hidden md:inline">Năm học:</span>

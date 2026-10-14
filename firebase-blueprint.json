@@ -1,0 +1,152 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account profile for school staff, teachers, and administrators",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique staff/account ID" },
+        "username": { "type": "string", "description": "Login username" },
+        "name": { "type": "string", "description": "Full name of staff" },
+        "role": { "type": "string", "enum": ["HT", "PHT", "GV_TIN_HOC", "GV", "NV", "NV_HD_BV", "PH_HS"], "description": "System role" },
+        "position": { "type": "string", "description": "Job title or position" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "campusId": { "type": "string", "description": "Campus identifier" },
+        "campusName": { "type": "string", "description": "Campus name" },
+        "branchName": { "type": "string", "description": "Branch name" },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"], "description": "Employment status" },
+        "updatedAt": { "type": "string", "description": "Last updated ISO date" }
+      },
+      "required": ["id", "name", "role", "position"]
+    },
+    "LeaveRequest": {
+      "title": "LeaveRequest",
+      "description": "Leave request submitted by staff for Principal (HT) approval",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Leave request unique ID" },
+        "staffId": { "type": "string", "description": "Applicant staff ID" },
+        "staffName": { "type": "string", "description": "Applicant staff name" },
+        "role": { "type": "string", "description": "Applicant role" },
+        "campusId": { "type": "string", "description": "Campus ID" },
+        "fromDate": { "type": "string", "description": "Start date" },
+        "toDate": { "type": "string", "description": "End date" },
+        "daysCount": { "type": "number", "description": "Total leave days" },
+        "reason": { "type": "string", "description": "Reason for leave" },
+        "substituteStaffId": { "type": "string", "description": "Assigned substitute teacher ID" },
+        "substituteStaffName": { "type": "string", "description": "Assigned substitute teacher name" },
+        "status": { "type": "string", "enum": ["CHO_DUYET", "DA_DUYET", "TU_CHOI"], "description": "Approval status" },
+        "approverId": { "type": "string", "description": "Principal ID" },
+        "approverName": { "type": "string", "description": "Principal name" },
+        "approvalNote": { "type": "string", "description": "Note from Principal" },
+        "approvalDate": { "type": "string", "description": "Approval date ISO" },
+        "schoolYear": { "type": "string", "description": "School year identifier" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Updated timestamp" }
+      },
+      "required": ["id", "staffId", "staffName", "fromDate", "toDate", "status"]
+    },
+    "FacilityProposal": {
+      "title": "FacilityProposal",
+      "description": "Facility repair or procurement proposal submitted for HT approval",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Proposal ID" },
+        "proposerId": { "type": "string", "description": "Proposer staff ID" },
+        "proposerName": { "type": "string", "description": "Proposer staff name" },
+        "campusId": { "type": "string", "description": "Campus ID" },
+        "itemName": { "type": "string", "description": "Item or facility to repair" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "urgency": { "type": "string", "enum": ["BINH_THUONG", "KHAN_CAP", "RAT_KHAN"], "description": "Urgency level" },
+        "estimatedCost": { "type": "number", "description": "Estimated cost in VND" },
+        "status": { "type": "string", "enum": ["CHO_DUYET", "DA_DUYET", "TU_CHOI", "DA_HOAN_THANH"], "description": "Proposal status" },
+        "approverId": { "type": "string", "description": "Principal ID" },
+        "approverName": { "type": "string", "description": "Principal name" },
+        "approvalNote": { "type": "string", "description": "Principal approval notes" },
+        "schoolYear": { "type": "string", "description": "School year" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Updated timestamp" }
+      },
+      "required": ["id", "proposerId", "itemName", "status"]
+    },
+    "InternalExpense": {
+      "title": "InternalExpense",
+      "description": "Internal expenditure or payment request submitted for HT approval",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Expense ID" },
+        "title": { "type": "string", "description": "Expenditure title" },
+        "category": { "type": "string", "description": "Category of expense" },
+        "amount": { "type": "number", "description": "Amount in VND" },
+        "requesterId": { "type": "string", "description": "Staff ID of requester" },
+        "requesterName": { "type": "string", "description": "Staff name of requester" },
+        "approvalStatus": { "type": "string", "enum": ["CHO_HT_DUYET", "HT_DA_DUYET", "HT_TU_CHOI"], "description": "Approval status" },
+        "approverId": { "type": "string", "description": "Principal ID" },
+        "approverName": { "type": "string", "description": "Principal name" },
+        "approvalNote": { "type": "string", "description": "Approval notes" },
+        "schoolYear": { "type": "string", "description": "School year" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Updated timestamp" }
+      },
+      "required": ["id", "title", "amount", "approvalStatus"]
+    },
+    "WorkWorkflowItem": {
+      "title": "WorkWorkflowItem",
+      "description": "School administration workflow tasks submitted for Principal approval and evaluation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Workflow item ID" },
+        "title": { "type": "string", "description": "Workflow title" },
+        "category": { "type": "string", "description": "Task category" },
+        "creatorId": { "type": "string", "description": "Creator ID" },
+        "creatorName": { "type": "string", "description": "Creator name" },
+        "status": { "type": "string", "enum": ["B1_CHO_HT_DUYET", "B2_HT_DA_DUYET", "B3_DANG_THUC_HIEN", "B4_CHO_HT_DANH_GIA", "B5_HT_DA_DANH_GIA", "TU_CHOI"], "description": "Step in 6-stage workflow" },
+        "schoolYear": { "type": "string", "description": "School year" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Updated timestamp" }
+      },
+      "required": ["id", "title", "status"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System operational audit log for data mutations and approvals",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Log ID" },
+        "action": { "type": "string", "description": "Action performed" },
+        "details": { "type": "string", "description": "Details of the action" },
+        "userId": { "type": "string", "description": "Actor user ID" },
+        "userName": { "type": "string", "description": "Actor user name" },
+        "timestamp": { "type": "string", "description": "Timestamp ISO" }
+      },
+      "required": ["id", "action", "details", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Staff and user profiles"
+    },
+    "/leaveRequests/{requestId}": {
+      "schema": "LeaveRequest",
+      "description": "Teacher and staff leave requests for Principal approval"
+    },
+    "/facilityProposals/{proposalId}": {
+      "schema": "FacilityProposal",
+      "description": "Facility repair and procurement proposals"
+    },
+    "/internalExpenses/{expenseId}": {
+      "schema": "InternalExpense",
+      "description": "Internal school payment vouchers and financial requests"
+    },
+    "/workWorkflowItems/{workflowId}": {
+      "schema": "WorkWorkflowItem",
+      "description": "Work circulation and 6-step administrative tasks"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Real-time system audit logs"
+    }
+  }
+}

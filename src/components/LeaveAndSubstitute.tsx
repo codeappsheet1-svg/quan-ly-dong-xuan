@@ -7,6 +7,7 @@ import {
 } from '../types/school';
 import { ALL_CAMPUSES, BRANCHES_DATA } from '../data/initialData';
 import { storageService } from '../services/storageService';
+import { cloudSyncService } from '../services/cloudSyncService';
 import {
   canApproveLeaveRequest,
   canApproveSubstituteRequest,
@@ -195,6 +196,9 @@ export const LeaveAndSubstitute: React.FC<LeaveAndSubstituteProps> = ({
       `Đồng chí ${currentUser.name} đã gửi đơn xin ${leaveType} từ ${startDate} đến ${endDate}`
     );
 
+    // Sync to Firestore Cloud
+    cloudSyncService.submitLeaveRequest(newLeave);
+
     setShowCreateLeaveModal(false);
     setLeaveReason('');
     setLeavePlan('');
@@ -292,6 +296,16 @@ export const LeaveAndSubstitute: React.FC<LeaveAndSubstituteProps> = ({
         currentLeaves[idx].approvalDate = new Date().toISOString().split('T')[0];
         currentLeaves[idx].approvalComment = approvalComment || `${approverName} đã phê duyệt.`;
         storageService.saveLeaves(currentLeaves);
+
+        // Sync approval to Firestore Cloud
+        if (currentUser) {
+          cloudSyncService.approveLeaveRequest(
+            selectedRequestForAction.item.id,
+            selectedRequestForAction.decision === 'APPROVED' ? 'Đã phê duyệt' : 'Từ chối',
+            currentUser,
+            approvalComment
+          );
+        }
       }
     } else {
       const currentSubs = storageService.getSubstitutes();

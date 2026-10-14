@@ -65,6 +65,7 @@ interface DashboardProps {
   activeSchoolYear?: string;
   onSelectTab: (tab: string) => void;
   onOpenRegister: () => void;
+  onOpenApprovalCenter?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -77,6 +78,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   activeSchoolYear = '2026-2027',
   onSelectTab,
   onOpenRegister,
+  onOpenApprovalCenter,
 }) => {
   // Official Quota breakdown (Quy mô cơ cấu 137 người theo yêu cầu BGH)
   const htCount = 1;
@@ -489,10 +491,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {onOpenApprovalCenter && (
+              <button
+                type="button"
+                onClick={onOpenApprovalCenter}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-slate-950 font-black text-xs shadow-lg transition active:scale-95 flex items-center gap-2 border border-amber-200"
+              >
+                <Sparkles className="w-4 h-4 text-slate-900" />
+                <span>Trình & Duyệt HT</span>
+                {(pendingLeaves + pendingSubs + pendingFacilities) > 0 && (
+                  <span className="px-1.5 py-0.2 bg-red-700 text-white font-bold text-[10px] rounded-full">
+                    {pendingLeaves + pendingSubs + pendingFacilities}
+                  </span>
+                )}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onSelectTab('public_portal')}
-              className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs shadow-md transition active:scale-95 flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs border border-white/20 shadow-md transition active:scale-95 flex items-center gap-2"
             >
               <span>🌐</span>
               <span>Cổng TT & Hoạt Động PHHS</span>

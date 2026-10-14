@@ -40,6 +40,8 @@ import { SystemAuditLogViewer } from './components/SystemAuditLogViewer';
 import { WorkWorkflowManager } from './components/WorkWorkflowManager';
 import { PersonalDashboard } from './components/PersonalDashboard';
 import { MultiCriteriaStatistics } from './components/MultiCriteriaStatistics';
+import { PrincipalApprovalCenterModal } from './components/PrincipalApprovalCenterModal';
+import { cloudSyncService } from './services/cloudSyncService';
 import { Calendar, Sparkles, Layers, RefreshCw } from 'lucide-react';
 
 export default function App() {
@@ -67,6 +69,17 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [isApprovalCenterOpen, setIsApprovalCenterOpen] = useState(false);
+
+  useEffect(() => {
+    cloudSyncService.initializeCloudSync();
+    const unsubscribe = cloudSyncService.onDataChange(() => {
+      refreshAllData();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const refreshAllData = () => {
     setAllStaff(storageService.getStaffList());
@@ -128,6 +141,13 @@ export default function App() {
     ? storageService.getWorkflows(activeSchoolYear).filter((w) => w.status === 'B1_CHO_HT_DUYET' || w.status === 'B4_CHO_HT_DANH_GIA').length
     : storageService.getWorkflows(activeSchoolYear).filter((w) => w.creatorId === currentUser?.id && (w.status === 'B2_HT_DA_DUYET' || w.status === 'B5_HT_DA_DANH_GIA')).length;
 
+  const totalPendingApprovals =
+    pendingLeavesCount +
+    pendingRepairsCount +
+    pendingExpensesCount +
+    pendingWorkflowsCount +
+    pendingAbsencesCount;
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-100/70 text-slate-800 font-sans selection:bg-red-700 selection:text-white">
       {/* Header */}
@@ -157,6 +177,8 @@ export default function App() {
         allSchoolYears={allSchoolYears}
         onChangeSchoolYear={handleChangeSchoolYear}
         onOpenYearTransition={() => setIsYearTransitionOpen(true)}
+        onOpenApprovalCenter={() => setIsApprovalCenterOpen(true)}
+        totalPendingApprovals={totalPendingApprovals}
       />
 
       {/* Main Container */}
@@ -185,6 +207,7 @@ export default function App() {
             activeSchoolYear={activeSchoolYear}
             onSelectTab={setActiveTab}
             onOpenRegister={() => setIsRegisterModalOpen(true)}
+            onOpenApprovalCenter={() => setIsApprovalCenterOpen(true)}
           />
         )}
 
@@ -457,6 +480,15 @@ export default function App() {
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         onSuccess={refreshAllData}
+      />
+
+      <PrincipalApprovalCenterModal
+        isOpen={isApprovalCenterOpen}
+        currentUser={currentUser}
+        activeSchoolYear={activeSchoolYear}
+        allStaff={allStaff}
+        onClose={() => setIsApprovalCenterOpen(false)}
+        onRefreshData={refreshAllData}
       />
 
       <AuthModal

@@ -6,6 +6,7 @@ import {
 } from '../types/school';
 import { ALL_CAMPUSES } from '../data/initialData';
 import { storageService } from '../services/storageService';
+import { cloudSyncService } from '../services/cloudSyncService';
 import {
   Wrench,
   CheckCircle2,
@@ -230,6 +231,9 @@ export const FacilityRepair: React.FC<FacilityRepairProps> = ({
     currentList.unshift(newProposal);
     storageService.saveFacilities(currentList);
 
+    // Sync to Firestore Cloud
+    cloudSyncService.submitFacilityProposal(newProposal);
+
     storageService.addSyncLog(
       'Đề xuất sửa chữa CSVC',
       `Đồng chí ${currentUser.name} đề xuất: "${title}" tại ${campusName} (Có ${initialPhotos.length} ảnh/giấy đề xuất đồng bộ Drive)`
@@ -264,6 +268,16 @@ export const FacilityRepair: React.FC<FacilityRepairProps> = ({
       currentList[idx].assignedDeadline = assignedDeadline;
       currentList[idx].executionStatus = 'Đang sửa chữa';
       storageService.saveFacilities(currentList);
+
+      // Sync to Firestore Cloud
+      if (currentUser) {
+        cloudSyncService.approveFacilityProposal(
+          selectedFacilityForHtApproval.id,
+          'Đã duyệt',
+          currentUser,
+          htComment || 'Hiệu trưởng phê duyệt thực hiện.'
+        );
+      }
     }
 
     storageService.addSyncLog(

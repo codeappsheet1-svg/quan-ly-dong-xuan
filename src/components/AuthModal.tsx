@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { UserAccount } from '../types/school';
 import { storageService } from '../services/storageService';
+import { cloudSyncService } from '../services/cloudSyncService';
 import {
   LogIn,
   KeyRound,
   User,
   ShieldCheck,
   AlertCircle,
-  CheckCircle2,
   Lock,
   Sparkles,
+  Cloud,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -32,6 +33,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [usernameOrId, setUsernameOrId] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Change password state
   const [newPassword, setNewPassword] = useState('');
@@ -85,6 +87,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } else {
       onLoginSuccess(found.account);
       onClose();
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsGoogleLoading(true);
+      setErrorMessage('');
+      const user = await cloudSyncService.loginWithGoogle();
+      storageService.addSyncLog(
+        'Đăng nhập Firebase Google Auth',
+        `Đồng chí ${user.name} (${user.email || user.id}) đăng nhập thành công qua Google Auth.`
+      );
+      onLoginSuccess(user);
+      onClose();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(
+        err?.message?.includes('popup-closed-by-user')
+          ? 'Cửa sổ đăng nhập Google đã đóng. Vui lòng thử lại.'
+          : 'Không thể đăng nhập Google lúc này. Bạn có thể dùng mã cán bộ (VD: HT01, GV_CS01) hoặc đăng nhập nhanh.'
+      );
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -147,92 +172,138 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
+        {/* Cloud Database Connected Banner */}
+        <div className="mt-3 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] flex items-center gap-2">
+          <Cloud className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <span>
+            Đã kích hoạt <strong>Firebase Firestore Cloud</strong> (Lưu trữ và xác thực dữ liệu thật).
+          </span>
+        </div>
+
         {errorMessage && (
-          <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+          <div className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         {!isChangingPassword ? (
-          <form onSubmit={handleLogin} className="mt-5 space-y-4 text-xs">
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">
-                Mã định danh (ID) hoặc Tên đăng nhập:
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: HT01, GV_CS01, GV_IT01, NV01, BV05..."
-                  value={usernameOrId}
-                  onChange={(e) => setUsernameOrId(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium focus:ring-2 focus:ring-red-600 outline-none"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">Mật khẩu:</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                <input
-                  type="password"
-                  required
-                  placeholder="Nhập mật khẩu (Mặc định: 123456)..."
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium focus:ring-2 focus:ring-red-600 outline-none"
-                />
-              </div>
-            </div>
-
+          <div className="mt-4 space-y-4">
+            {/* Google Authentication Button */}
             <button
-              type="submit"
-              className="w-full py-2.5 rounded-xl bg-red-700 hover:bg-red-800 text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+              type="button"
+              disabled={isGoogleLoading}
+              onClick={handleGoogleLogin}
+              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-sm flex items-center justify-center gap-3 transition active:scale-95 disabled:opacity-50"
             >
-              <LogIn className="w-4 h-4" />
-              <span>Đăng Nhập Vào Hệ Thống</span>
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+              <span>{isGoogleLoading ? 'Đang kết nối Google...' : 'Đăng nhập nhanh với Google (Firebase)'}</span>
             </button>
 
-            {/* Quick Demo Login Buttons */}
-            <div className="pt-3 border-t border-slate-100">
-              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Đăng nhập nhanh kiểm thử theo vai trò:
-              </div>
-              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('HT01')}
-                  className="p-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-800 font-bold text-left truncate"
-                >
-                  👑 HT Nguyễn Quốc Bảo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('GV_IT01')}
-                  className="p-1.5 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-left truncate"
-                >
-                  💻 Quản trị IT Minh
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('GV_CS01')}
-                  className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-left truncate"
-                >
-                  🧑‍🏫 GV THCS Dũng (9A)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin('NV01')}
-                  className="p-1.5 rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-left truncate"
-                >
-                  📑 Kế toán viên Hà
-                </button>
-              </div>
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-slate-200"></div>
+              <span className="flex-shrink mx-3 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                hoặc đăng nhập bằng mã tài khoản
+              </span>
+              <div className="flex-grow border-t border-slate-200"></div>
             </div>
-          </form>
+
+            <form onSubmit={handleLogin} className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Mã định danh (ID) hoặc Tên đăng nhập:
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: HT01, GV_CS01, GV_IT01, NV01, BV05..."
+                    value={usernameOrId}
+                    onChange={(e) => setUsernameOrId(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium focus:ring-2 focus:ring-red-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Mật khẩu:</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="Nhập mật khẩu (Mặc định: 123456)..."
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-medium focus:ring-2 focus:ring-red-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-red-700 hover:bg-red-800 text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Đăng Nhập Vào Hệ Thống</span>
+              </button>
+
+              {/* Quick Demo Login Buttons */}
+              <div className="pt-3 border-t border-slate-100">
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Đăng nhập nhanh theo vai trò để thao tác thử:
+                </div>
+                <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('HT01')}
+                    className="p-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-800 font-bold text-left truncate"
+                  >
+                    👑 HT Nguyễn Quốc Bảo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('GV_IT01')}
+                    className="p-1.5 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-left truncate"
+                  >
+                    💻 Quản trị IT Minh
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('GV_CS01')}
+                    className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-left truncate"
+                  >
+                    🧑‍🏫 GV THCS Dũng (9A)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('NV01')}
+                    className="p-1.5 rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-left truncate"
+                  >
+                    📑 Kế toán viên Hà
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         ) : (
           /* CHANGE PASSWORD FORM */
           <form onSubmit={handleChangePassword} className="mt-5 space-y-4 text-xs">
