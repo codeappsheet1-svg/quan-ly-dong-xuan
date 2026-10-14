@@ -12,24 +12,22 @@ permissions:
 
 concurrency:
   group: 'pages'
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  # Job 1: Build mã nguồn và đóng gói artifact
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout mã nguồn
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Cài đặt Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
 
-      - name: Install dependencies
+      - name: Cài đặt thư viện dependencies
         run: |
           if [ -f package-lock.json ]; then
             npm ci || npm install --legacy-peer-deps
@@ -37,17 +35,25 @@ jobs:
             npm install --legacy-peer-deps
           fi
 
-      - name: Build
+      - name: Build dự án
         run: npm run build
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      - name: Cấu hình Pages
+        uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Tải lên artifact github-pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
 
-      - name: Deploy to GitHub Pages
+  # Job 2: Xuất bản lên GitHub Pages sau khi Build hoàn tất
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Xuất bản lên GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
