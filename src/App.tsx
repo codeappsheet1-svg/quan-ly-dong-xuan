@@ -42,11 +42,15 @@ import { PersonalDashboard } from './components/PersonalDashboard';
 import { MultiCriteriaStatistics } from './components/MultiCriteriaStatistics';
 import { PrincipalApprovalCenterModal } from './components/PrincipalApprovalCenterModal';
 import { cloudSyncService } from './services/cloudSyncService';
+import { canAccessTab } from './utils/permissionUtils';
 import { Calendar, Sparkles, Layers, RefreshCw } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => storageService.getCurrentUser());
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const user = storageService.getCurrentUser();
+    return user ? 'personal_dashboard' : 'public_portal';
+  });
 
   // School Year & CSDL isolation state (Requirement 1 & 2)
   const [activeSchoolYear, setActiveSchoolYear] = useState(() => storageService.getActiveSchoolYear());
@@ -80,6 +84,12 @@ export default function App() {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!canAccessTab(currentUser, activeTab)) {
+      setActiveTab(currentUser ? 'personal_dashboard' : 'public_portal');
+    }
+  }, [currentUser, activeTab]);
 
   const refreshAllData = () => {
     setAllStaff(storageService.getStaffList());
@@ -183,6 +193,36 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {!currentUser && (
+          <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-red-950 to-slate-900 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-red-800/60">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-700 border-2 border-amber-300 text-white flex items-center justify-center font-black text-xl flex-shrink-0 shadow-lg">
+                ĐX
+              </div>
+              <div>
+                <div className="font-extrabold text-sm sm:text-base flex items-center gap-2">
+                  <span>Hệ Thống Quản Lý Giáo Dục Trường TH & THCS Đồng Xuân</span>
+                  <span className="text-[10px] bg-red-600/80 text-amber-200 font-bold px-2 py-0.5 rounded-full border border-red-400">
+                    Chính Thức
+                  </span>
+                </div>
+                <p className="text-xs text-rose-200 mt-1">
+                  Quý thầy cô và cán bộ nhà trường vui lòng đăng nhập tài khoản để thực hiện phê duyệt, nộp đơn nghỉ phép, ghi sổ sách hoặc quản lý điểm số.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 self-end sm:self-center flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsLoginModalOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-slate-950 font-black text-xs shadow-lg transition active:scale-95 flex items-center gap-2"
+              >
+                <span>🔑 Đăng nhập Cán bộ (10 TK Đại diện)</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* TAB: DASHBOARD CÁ NHÂN */}
         {activeTab === 'personal_dashboard' && (
           <PersonalDashboard
