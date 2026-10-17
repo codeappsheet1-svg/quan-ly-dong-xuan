@@ -23,6 +23,11 @@ import {
   ShieldCheck,
   Calendar,
 } from 'lucide-react';
+import {
+  isFullPrincipal,
+  isVicePrincipal,
+  getPhtAssignedBranch,
+} from '../utils/permissionUtils';
 
 interface PrincipalApprovalCenterModalProps {
   isOpen: boolean;
@@ -41,7 +46,14 @@ export const PrincipalApprovalCenterModal: React.FC<PrincipalApprovalCenterModal
   onClose,
   onRefreshData,
 }) => {
-  const [activeTab, setActiveTab] = useState<'pending' | 'submit_new'>('pending');
+  const isPrincipal = isFullPrincipal(currentUser);
+  const isVicePrincipalUser = isVicePrincipal(currentUser);
+  const isBgh = isPrincipal || isVicePrincipalUser;
+  const phtBranch = getPhtAssignedBranch(currentUser);
+
+  const [activeTab, setActiveTab] = useState<'pending' | 'submit_new'>(() =>
+    isBgh ? 'pending' : 'submit_new'
+  );
   const [actionCategory, setActionCategory] = useState<'all' | 'leaves' | 'facilities' | 'expenses' | 'workflows'>('all');
 
   // Submit new request state
@@ -102,6 +114,18 @@ export const PrincipalApprovalCenterModal: React.FC<PrincipalApprovalCenterModal
   // Handle Approvals
   const handleApproveLeave = async (leaveId: string, status: 'Đã phê duyệt' | 'Từ chối') => {
     if (!currentUser) return;
+    if (!isBgh) {
+      setErrorMessage('Chỉ Ban Giám hiệu (Hiệu trưởng & Phó Hiệu trưởng) mới có thẩm quyền duyệt đơn nghỉ phép.');
+      return;
+    }
+    const target = leaves.find((l) => l.id === leaveId);
+    if (!isPrincipal && isVicePrincipalUser && phtBranch && target) {
+      const branch = (target.branchName || target.campusName || '').toLowerCase();
+      if (!branch.includes(phtBranch.toLowerCase())) {
+        setErrorMessage(`Thầy ${currentUser.name} chỉ phụ trách duyệt phân hiệu ${phtBranch}. Đơn này thuộc ${target.campusName || target.branchName}.`);
+        return;
+      }
+    }
     try {
       setIsSubmitting(true);
       await cloudSyncService.approveLeaveRequest(leaveId, status, currentUser, approvalNote);
@@ -124,6 +148,10 @@ export const PrincipalApprovalCenterModal: React.FC<PrincipalApprovalCenterModal
     status: 'Đã duyệt' | 'Không duyệt'
   ) => {
     if (!currentUser) return;
+    if (!isPrincipal) {
+      setErrorMessage('Theo quy chế, duy nhất Hiệu trưởng Thầy Nguyễn Quốc Bảo có quyền duyệt kinh phí cơ sở vật chất.');
+      return;
+    }
     try {
       setIsSubmitting(true);
       await cloudSyncService.approveFacilityProposal(proposalId, status, currentUser, approvalNote);
@@ -139,6 +167,10 @@ export const PrincipalApprovalCenterModal: React.FC<PrincipalApprovalCenterModal
 
   const handleApproveExpense = async (expenseId: string, status: 'HT_DA_DUYET' | 'HT_TU_CHOI') => {
     if (!currentUser) return;
+    if (!isPrincipal) {
+      setErrorMessage('Theo quy chế tài chính, duy nhất Hiệu trưởng Thầy Nguyễn Quốc Bảo có thẩm quyền chuẩn chi thanh toán nội bộ.');
+      return;
+    }
     try {
       setIsSubmitting(true);
       await cloudSyncService.approveInternalExpense(expenseId, status, currentUser, approvalNote);
@@ -162,6 +194,10 @@ export const PrincipalApprovalCenterModal: React.FC<PrincipalApprovalCenterModal
     note?: string
   ) => {
     if (!currentUser) return;
+    if (!isPrincipal) {
+      setErrorMessage('Theo quy chế, duy nhất Hiệu trưởng Thầy Nguyễn Quốc Bảo có thẩm quyền phê duyệt quy trình công việc.');
+      return;
+    }
     try {
       setIsSubmitting(true);
       await cloudSyncService.advanceWorkflowItem(workflowId, newStatus, currentUser, note);
