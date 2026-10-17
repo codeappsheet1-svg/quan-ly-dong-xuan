@@ -1,101 +1,73 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default Deny
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Users & Staff Profiles
+    match /users/{userId} {
+      allow read, write: if isValidId(userId);
+    }
+
+    // Classes & Student Rosters
+    match /classes/{classId} {
+      allow read, write: if isValidId(classId);
+    }
+
+    // Leave & Substitute Requests
+    match /leaveRequests/{requestId} {
+      allow read, write: if isValidId(requestId);
+    }
+
+    // Facility Proposals & Repairs
+    match /facilityProposals/{proposalId} {
+      allow read, write: if isValidId(proposalId);
+    }
+
+    // Internal Expenses & Payment Vouchers
+    match /internalExpenses/{expenseId} {
+      allow read, write: if isValidId(expenseId);
+    }
+
+    // 6-Stage Administrative Workflows
+    match /workWorkflowItems/{workflowId} {
+      allow read, write: if isValidId(workflowId);
+    }
+
+    // Student Transfers & Movement
+    match /studentTransfers/{transferId} {
+      allow read, write: if isValidId(transferId);
+    }
+
+    // Student Absences
+    match /studentAbsences/{absenceId} {
+      allow read, write: if isValidId(absenceId);
+    }
+
+    // Principal Private Cashbook
+    match /cashbookEntries/{entryId} {
+      allow read, write: if isValidId(entryId);
+    }
+
+    // Suggestion Box & Feedbacks
+    match /feedbacks/{feedbackId} {
+      allow read, write: if isValidId(feedbackId);
+    }
+
+    // Public Articles & Honors
+    match /publicArticles/{articleId} {
+      allow read, write: if isValidId(articleId);
+    }
+
+    // System Audit Logs
+    match /auditLogs/{logId} {
+      allow read, write: if isValidId(logId);
+    }
+
+    // Default Deny for other paths
     match /{document=**} {
       allow read, write: if false;
-    }
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'codeappsheet1@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-      );
-    }
-
-    // Users Collection
-    match /users/{userId} {
-      allow read: if isSignedIn() && isValidId(userId);
-      allow create, update: if isSignedIn() && isValidId(userId) && (
-        isAdmin() || request.auth.uid == userId
-      );
-      allow delete: if isAdmin() && isValidId(userId);
-    }
-
-    // Leave Requests
-    match /leaveRequests/{requestId} {
-      allow read: if isSignedIn() && isValidId(requestId);
-      allow create: if isSignedIn() && isValidId(requestId) &&
-        incoming().id is string && incoming().id.size() <= 64 &&
-        incoming().staffName is string && incoming().staffName.size() <= 100 &&
-        incoming().status in ['CHO_DUYET', 'DA_DUYET', 'TU_CHOI'];
-      allow update: if isSignedIn() && isValidId(requestId) && (
-        isAdmin() ||
-        (existing().staffId == request.auth.uid && incoming().status == existing().status) ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'approverId', 'approverName', 'approvalNote', 'approvalDate', 'updatedAt'])
-      );
-      allow delete: if isAdmin() && isValidId(requestId);
-    }
-
-    // Facility Proposals
-    match /facilityProposals/{proposalId} {
-      allow read: if isSignedIn() && isValidId(proposalId);
-      allow create: if isSignedIn() && isValidId(proposalId) &&
-        incoming().itemName is string && incoming().itemName.size() <= 200;
-      allow update: if isSignedIn() && isValidId(proposalId) && (
-        isAdmin() ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'approverId', 'approverName', 'approvalNote', 'updatedAt'])
-      );
-      allow delete: if isAdmin() && isValidId(proposalId);
-    }
-
-    // Internal Expenses
-    match /internalExpenses/{expenseId} {
-      allow read: if isSignedIn() && isValidId(expenseId);
-      allow create: if isSignedIn() && isValidId(expenseId) &&
-        incoming().title is string && incoming().title.size() <= 200 &&
-        incoming().amount is number;
-      allow update: if isSignedIn() && isValidId(expenseId) && (
-        isAdmin() ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['approvalStatus', 'approverId', 'approverName', 'approvalNote', 'updatedAt'])
-      );
-      allow delete: if isAdmin() && isValidId(expenseId);
-    }
-
-    // Workflow Items
-    match /workWorkflowItems/{workflowId} {
-      allow read: if isSignedIn() && isValidId(workflowId);
-      allow create: if isSignedIn() && isValidId(workflowId) &&
-        incoming().title is string && incoming().title.size() <= 200;
-      allow update: if isSignedIn() && isValidId(workflowId) && (
-        isAdmin() ||
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'evaluationScore', 'evaluationNote'])
-      );
-      allow delete: if isAdmin() && isValidId(workflowId);
-    }
-
-    // Audit Logs
-    match /auditLogs/{logId} {
-      allow read: if isSignedIn() && isValidId(logId);
-      allow create: if isSignedIn() && isValidId(logId) &&
-        incoming().action is string && incoming().action.size() <= 200;
-      allow update, delete: if false;
     }
   }
 }
