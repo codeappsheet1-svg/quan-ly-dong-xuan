@@ -477,3 +477,186 @@ export function canReceiveTransferStudent(
   return false;
 }
 
+// ==========================================
+// ĐỊNH DANH VAI TRÒ & PHÂN QUYỀN TRUY CẬP TAB
+// ==========================================
+
+export function isFullPrincipal(user: UserAccount | null): boolean {
+  if (!user) return false;
+  return user.role === 'HT' || user.id === 'HT01';
+}
+
+export function isVicePrincipal(user: UserAccount | null): boolean {
+  if (!user) return false;
+  return user.role === 'PHT';
+}
+
+export function isITAdmin(user: UserAccount | null): boolean {
+  if (!user) return false;
+  return user.role === 'GV_TIN_HOC' || user.id === 'GV_IT01';
+}
+
+export function isAccountant(user: UserAccount | null): boolean {
+  if (!user) return false;
+  return user.id === 'NV_KE_TOAN' || (user.position && user.position.toLowerCase().includes('kế toán')) || false;
+}
+
+export function isTreasurer(user: UserAccount | null): boolean {
+  if (!user) return false;
+  return user.id === 'NV_THU_QUY' || (user.position && user.position.toLowerCase().includes('thủ quỹ')) || false;
+}
+
+export function isClerk(user: UserAccount | null): boolean {
+  if (!user) return false;
+  return user.id === 'NV_VAN_THU' || (user.position && user.position.toLowerCase().includes('văn thư')) || false;
+}
+
+export function isSecurityGuard(user: UserAccount | null): boolean {
+  if (!user) return false;
+  return user.role === 'NV_HD_BV' || (user.id && user.id.startsWith('BV_')) || (user.position && user.position.toLowerCase().includes('bảo vệ')) || false;
+}
+
+/**
+ * Kiểm tra xem người dùng có quyền phê duyệt kinh phí CSVC hay không:
+ * - Duyệt kinh phí sửa chữa: Duy nhất Hiệu trưởng Thầy Nguyễn Quốc Bảo
+ */
+export function canApproveFacilityProposal(user: UserAccount | null): boolean {
+  return isFullPrincipal(user);
+}
+
+/**
+ * Kiểm tra xem người dùng có quyền chuẩn chi thanh toán nội bộ hay không:
+ * - Chuẩn chi thanh toán: Duy nhất Hiệu trưởng Thầy Nguyễn Quốc Bảo
+ */
+export function canApproveInternalExpense(user: UserAccount | null): boolean {
+  return isFullPrincipal(user);
+}
+
+/**
+ * Kiểm tra xem người dùng có quyền duyệt quy trình công việc 6 bước hay không:
+ * - Duyệt kế hoạch (B1) & Đánh giá xếp loại (B5): Hiệu trưởng Thầy Nguyễn Quốc Bảo
+ */
+export function canApproveWorkflowItem(user: UserAccount | null): boolean {
+  return isFullPrincipal(user);
+}
+
+/**
+ * Kiểm tra xem người dùng có quyền quản trị sổ quỹ riêng của Hiệu trưởng hay không:
+ * - Sổ Quỹ Thu - Chi HT: Bảo mật tuyệt đối, chỉ riêng Hiệu trưởng (HT01)
+ */
+export function canAccessPrincipalCashbook(user: UserAccount | null): boolean {
+  return isFullPrincipal(user);
+}
+
+/**
+ * Kiểm tra xem một tab có được phép hiển thị và truy cập đối với tài khoản hay không
+ */
+export function canAccessTab(user: UserAccount | null, tabId: string): boolean {
+  // 1. Khách / Chưa đăng nhập: Chỉ được xem 4 trang công khai
+  if (!user) {
+    return ['public_portal', 'notices_honors', 'feedback_hub', 'branch_portals'].includes(tabId);
+  }
+
+  // 2. Hiệu trưởng (HT01): Toàn quyền xem TẤT CẢ các tab
+  if (isFullPrincipal(user)) {
+    return true;
+  }
+
+  // Sổ Quỹ riêng của Hiệu trưởng: TUYỆT ĐỐI CHỈ RIÊNG HIỆU TRƯỞNG
+  if (tabId === 'principal_cashbook') {
+    return false;
+  }
+
+  // 3. Phó Hiệu trưởng (PHT)
+  if (isVicePrincipal(user)) {
+    // PHT không xem Sổ quỹ HT, không xem Sổ chi tiêu nội bộ (duyệt chi của HT), không cấu hình GAS
+    if (['internal_expenses', 'finance', 'gas_center', 'audit_logs'].includes(tabId)) {
+      return false;
+    }
+    return true;
+  }
+
+  // 4. Quản trị hệ thống (GV Tin học)
+  if (isITAdmin(user)) {
+    // IT không xem Sổ quỹ HT, không xem Chi tiêu nội bộ, không xem Quản lý nhân sự nhạy cảm
+    if (['internal_expenses', 'finance', 'staff'].includes(tabId)) {
+      return false;
+    }
+    return true;
+  }
+
+  // 5. Kế toán (Trần Thị Thanh Thảo)
+  if (isAccountant(user)) {
+    return [
+      'personal_dashboard',
+      'profile_az',
+      'finance',
+      'internal_expenses',
+      'facilities',
+      'leaves',
+      'notices_honors',
+      'feedback_hub',
+      'public_portal',
+    ].includes(tabId);
+  }
+
+  // 6. Thủ quỹ (Mai Thị Liễu)
+  if (isTreasurer(user)) {
+    return [
+      'personal_dashboard',
+      'profile_az',
+      'finance',
+      'internal_expenses',
+      'leaves',
+      'notices_honors',
+      'feedback_hub',
+      'public_portal',
+    ].includes(tabId);
+  }
+
+  // 7. Văn thư (Lý Nhật Nguyệt)
+  if (isClerk(user)) {
+    return [
+      'personal_dashboard',
+      'profile_az',
+      'dispatches',
+      'notices_honors',
+      'leaves',
+      'feedback_hub',
+      'public_portal',
+    ].includes(tabId);
+  }
+
+  // 8. Bảo vệ / Hợp đồng
+  if (isSecurityGuard(user)) {
+    return [
+      'personal_dashboard',
+      'profile_az',
+      'facilities',
+      'leaves',
+      'notices_honors',
+      'feedback_hub',
+      'public_portal',
+    ].includes(tabId);
+  }
+
+  // 9. Giáo viên thông thường (GV)
+  if (user.role === 'GV') {
+    // Giáo viên không xem Nhân sự 137, Sổ chi tiêu nội bộ, Tài chính học phí, GAS Sync, Nhật ký hệ thống
+    if (['staff', 'internal_expenses', 'finance', 'gas_center', 'audit_logs'].includes(tabId)) {
+      return false;
+    }
+    return true;
+  }
+
+  // Mặc định cho nhân viên khác
+  return [
+    'personal_dashboard',
+    'profile_az',
+    'leaves',
+    'notices_honors',
+    'feedback_hub',
+    'public_portal',
+  ].includes(tabId);
+}
+
