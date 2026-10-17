@@ -4,10 +4,17 @@ import {
   Role,
 } from '../types/school';
 import {
+  canAccessTab,
+  isFullPrincipal,
+  isVicePrincipal,
+  getPhtAssignedBranch,
+} from '../utils/permissionUtils';
+import {
   GraduationCap,
   LogOut,
   UserCheck,
   Printer,
+  Download,
   UserPlus,
   KeyRound,
   FileSpreadsheet,
@@ -201,16 +208,28 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Controls: HT Approval Hub, School Year Selector, Role Switcher, Print, User Badge */}
           <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Direct Principal Approval Center Button */}
+            {/* Direct Approval / Submission Center Button */}
             {onOpenApprovalCenter && (
               <button
                 type="button"
                 onClick={onOpenApprovalCenter}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-700 to-amber-600 hover:from-red-800 hover:to-amber-700 text-white text-xs font-bold shadow-md transition active:scale-95 border border-amber-300/40"
-                title="Mở trung tâm Trình & Phê duyệt trực tuyến của Hiệu trưởng"
+                title={
+                  isFullPrincipal(currentUser)
+                    ? 'Trung tâm Phê chuẩn trực tuyến của Hiệu trưởng'
+                    : isVicePrincipal(currentUser)
+                    ? `Phê duyệt PHT (${getPhtAssignedBranch(currentUser) || 'Phân hiệu'})`
+                    : 'Gửi đơn nghỉ phép, đề xuất cơ sở vật chất hoặc tờ trình lên Ban Giám hiệu'
+                }
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                <span>Trình & Duyệt HT</span>
+                <span>
+                  {isFullPrincipal(currentUser)
+                    ? '👑 Duyệt HT'
+                    : isVicePrincipal(currentUser)
+                    ? `⚡ Duyệt PHT`
+                    : '📝 Trình Đơn BGH'}
+                </span>
                 {totalPendingApprovals > 0 && (
                   <span className="ml-0.5 px-1.5 py-0.2 bg-amber-400 text-slate-900 text-[10px] font-black rounded-full shadow-xs">
                     {totalPendingApprovals}
@@ -248,23 +267,23 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* Quick Role Switcher for Testing & Principal View */}
+            {/* Quick Staff Account Switcher */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition shadow-sm"
-                title="Chuyển nhanh góc nhìn người dùng"
+                title="Chuyển đổi tài khoản làm việc của cán bộ"
               >
                 <UserCheck className="w-3.5 h-3.5 text-blue-600" />
-                <span className="hidden md:inline">Đổi vai người dùng</span>
+                <span className="hidden md:inline">Chuyển tài khoản</span>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
 
               {showRoleSwitcher && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 py-2 z-50 text-xs">
                   <div className="px-3 py-1.5 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Đổi tài khoản đăng nhập mẫu:
+                    Chuyển tài khoản cán bộ làm việc:
                   </div>
                   <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
                     {(() => {
@@ -444,35 +463,37 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Dynamically filtered by role */}
         <nav className="mt-3 flex space-x-1 overflow-x-auto pb-1 text-xs scrollbar-none">
-          {navItems.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => onSelectTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
-                  isActive
-                    ? 'bg-red-700 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-                {tab.badge && (
-                  <span
-                    className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                      isActive ? 'bg-white text-red-700' : 'bg-red-600 text-white'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {navItems
+            .filter((tab) => canAccessTab(currentUser, tab.id))
+            .map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => onSelectTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold whitespace-nowrap transition-all ${
+                    isActive
+                      ? 'bg-red-700 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  {tab.badge && (
+                    <span
+                      className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        isActive ? 'bg-white text-red-700' : 'bg-red-600 text-white'
+                      }`}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
         </nav>
       </div>
     </header>
