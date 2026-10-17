@@ -28,12 +28,24 @@ import {
   InternalExpenseItem,
   WorkWorkflowItem,
   WorkflowStepStatus,
+  SchoolClass,
+  StudentTransferReport,
+  StudentAbsenceRequest,
+  CashbookEntry,
+  SchoolFeedbackItem,
+  SchoolPublicArticle,
 } from '../types/school';
 import {
+  INITIAL_CLASSES,
   INITIAL_LEAVE_REQUESTS,
   INITIAL_FACILITY_PROPOSALS,
   INITIAL_INTERNAL_EXPENSES,
   INITIAL_WORKFLOW_ITEMS,
+  INITIAL_STUDENT_TRANSFERS,
+  INITIAL_STUDENT_ABSENCE_REQUESTS,
+  INITIAL_CASHBOOK_ENTRIES,
+  INITIAL_FEEDBACKS,
+  INITIAL_PUBLIC_ARTICLES,
 } from '../data/initialData';
 
 export type SyncStatus = 'CONNECTING' | 'CONNECTED' | 'SYNCING' | 'OFFLINE';
@@ -43,6 +55,7 @@ class CloudSyncService {
   private statusListeners: Array<(status: SyncStatus) => void> = [];
   private dataChangeListeners: Array<() => void> = [];
   private initialized = false;
+  private isRemoteUpdate = false;
 
   public getStatus(): SyncStatus {
     return this.syncStatus;
@@ -82,6 +95,11 @@ class CloudSyncService {
     try {
       this.setStatus('CONNECTING');
 
+      // Hook local storage mutations to automatically sync to Firestore Cloud
+      storageService.onSave((type, data, year) => {
+        this.handleStorageSave(type, data, year);
+      });
+
       // Setup Auth State Listener
       onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
@@ -90,22 +108,107 @@ class CloudSyncService {
         }
       });
 
-      // Listen to real-time leave requests
+      // Real-time subscriptions to Firestore collections
+      this.subscribeClasses();
       this.subscribeLeaveRequests();
-      // Listen to real-time facility proposals
       this.subscribeFacilityProposals();
-      // Listen to real-time internal expenses
       this.subscribeInternalExpenses();
-      // Listen to real-time workflow tasks
       this.subscribeWorkflows();
+      this.subscribeStudentTransfers();
+      this.subscribeStudentAbsences();
+      this.subscribeCashbook();
+      this.subscribeFeedbacks();
+      this.subscribePublicArticles();
 
-      // Check and seed initial data
+      // Check and seed initial cloud data
       await this.seedInitialCloudData();
 
       this.setStatus('CONNECTED');
     } catch (error) {
       console.warn('Could not initialize Firebase Cloud Sync fully, using offline storage:', error);
       this.setStatus('OFFLINE');
+    }
+  }
+
+  /**
+   * Automatically push local storage changes to Firestore Cloud
+   */
+  private async handleStorageSave(type: string, data: any, year?: string) {
+    if (this.isRemoteUpdate) return;
+    try {
+      if (type === 'classes' && Array.isArray(data)) {
+        for (const cls of data) {
+          if (cls && cls.id) {
+            await setDoc(doc(db, 'classes', cls.id), cls, { merge: true });
+          }
+        }
+      } else if (type === 'leaves' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.id) {
+            await setDoc(doc(db, 'leaveRequests', item.id), item, { merge: true });
+          }
+        }
+      } else if (type === 'facilities' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.id) {
+            await setDoc(doc(db, 'facilityProposals', item.id), item, { merge: true });
+          }
+        }
+      } else if (type === 'internalExpenses' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.id) {
+            await setDoc(doc(db, 'internalExpenses', item.id), item, { merge: true });
+          }
+        }
+      } else if (type === 'workflows' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.id) {
+            await setDoc(doc(db, 'workWorkflowItems', item.id), item, { merge: true });
+          }
+        }
+      } else if (type === 'studentTransfers' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.id) {
+            await setDoc(doc(db, 'studentTransfers', item.id), item, { merge: true });
+          }
+        }
+      } else if (type === 'studentAbsences' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.id) {
+            await setDoc(doc(db, 'studentAbsences', item.id), item, { merge: true });
+          }
+        }
+      } else if (type === 'cashbook' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.id) {
+            await setDoc(doc(db, 'cashbookEntries', item.id), item, { merge: true });
+          }
+        }
+      } else if (type === 'feedbacks' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.id) {
+            await setDoc(doc(db, 'feedbacks', item.id), item, { merge: true });
+          }
+        }
+      } else if (type === 'publicArticles' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.id) {
+            await setDoc(doc(db, 'publicArticles', item.id), item, { merge: true });
+          }
+        }
+      } else if (type === 'staff' && Array.isArray(data)) {
+        for (const item of data) {
+          if (item && item.account && item.account.id) {
+            await setDoc(doc(db, 'users', item.account.id), {
+              ...item.account,
+              sheetDataAZ: item.sheetDataAZ || {},
+              updatedAt: new Date().toISOString(),
+            }, { merge: true });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Sync to cloud notice:', err);
     }
   }
 
@@ -154,7 +257,6 @@ class CloudSyncService {
         avatar: firebaseUser.photoURL || matchedStaff.account.avatar,
       };
     } else {
-      // First staff (Hiệu trưởng Nguyễn Quốc Bảo) if admin email, else guest/teacher
       const isPrincipal = email === 'codeappsheet1@gmail.com' || email.includes('hieutruong');
       if (isPrincipal) {
         userAccount = {
@@ -214,6 +316,7 @@ class CloudSyncService {
    */
   private async seedInitialCloudData() {
     try {
+      // 1. Leave Requests
       const leavesSnap = await getDocs(query(collection(db, 'leaveRequests'), limit(1)));
       if (leavesSnap.empty) {
         for (const item of INITIAL_LEAVE_REQUESTS) {
@@ -221,6 +324,7 @@ class CloudSyncService {
         }
       }
 
+      // 2. Facility Proposals
       const facSnap = await getDocs(query(collection(db, 'facilityProposals'), limit(1)));
       if (facSnap.empty) {
         for (const item of INITIAL_FACILITY_PROPOSALS) {
@@ -228,6 +332,7 @@ class CloudSyncService {
         }
       }
 
+      // 3. Internal Expenses
       const expSnap = await getDocs(query(collection(db, 'internalExpenses'), limit(1)));
       if (expSnap.empty) {
         for (const item of INITIAL_INTERNAL_EXPENSES) {
@@ -235,14 +340,60 @@ class CloudSyncService {
         }
       }
 
+      // 4. Workflows
       const wfSnap = await getDocs(query(collection(db, 'workWorkflowItems'), limit(1)));
       if (wfSnap.empty) {
         for (const item of INITIAL_WORKFLOW_ITEMS) {
           await setDoc(doc(db, 'workWorkflowItems', item.id), item);
         }
       }
+
+      // 5. Classes
+      const classSnap = await getDocs(query(collection(db, 'classes'), limit(1)));
+      if (classSnap.empty && INITIAL_CLASSES.length > 0) {
+        for (const item of INITIAL_CLASSES.slice(0, 15)) {
+          await setDoc(doc(db, 'classes', item.id), item);
+        }
+      }
     } catch (error) {
       console.warn('Initial data seeding note:', error);
+    }
+  }
+
+  /**
+   * Real-time listener for Classes
+   */
+  private subscribeClasses() {
+    try {
+      const q = collection(db, 'classes');
+      onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const classesMap = new Map<string, SchoolClass>();
+            const activeYear = storageService.getActiveSchoolYear();
+            const currentClasses = storageService.getClasses(activeYear);
+            currentClasses.forEach((c) => classesMap.set(c.id, c));
+
+            snapshot.forEach((d) => {
+              const cls = d.data() as SchoolClass;
+              if (cls && cls.id) {
+                classesMap.set(cls.id, cls);
+              }
+            });
+
+            this.isRemoteUpdate = true;
+            storageService.saveClasses(Array.from(classesMap.values()), activeYear);
+            this.isRemoteUpdate = false;
+            this.notifyDataChanged();
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'classes');
+        }
+      );
+    } catch (err) {
+      console.warn('Classes subscription note:', err);
     }
   }
 
@@ -261,7 +412,9 @@ class CloudSyncService {
               leaves.push(d.data() as LeaveRequest);
             });
             const activeYear = storageService.getActiveSchoolYear();
+            this.isRemoteUpdate = true;
             storageService.saveLeaves(leaves, activeYear);
+            this.isRemoteUpdate = false;
             this.notifyDataChanged();
           }
         },
@@ -288,7 +441,9 @@ class CloudSyncService {
             snapshot.forEach((d) => {
               facilities.push(d.data() as FacilityRepairProposal);
             });
+            this.isRemoteUpdate = true;
             storageService.saveFacilities(facilities);
+            this.isRemoteUpdate = false;
             this.notifyDataChanged();
           }
         },
@@ -316,7 +471,9 @@ class CloudSyncService {
               expenses.push(d.data() as InternalExpenseItem);
             });
             const activeYear = storageService.getActiveSchoolYear();
+            this.isRemoteUpdate = true;
             storageService.saveInternalExpenses(expenses, activeYear);
+            this.isRemoteUpdate = false;
             this.notifyDataChanged();
           }
         },
@@ -344,7 +501,9 @@ class CloudSyncService {
               items.push(d.data() as WorkWorkflowItem);
             });
             const activeYear = storageService.getActiveSchoolYear();
+            this.isRemoteUpdate = true;
             storageService.saveWorkflows(items, activeYear);
+            this.isRemoteUpdate = false;
             this.notifyDataChanged();
           }
         },
@@ -354,6 +513,156 @@ class CloudSyncService {
       );
     } catch (err) {
       console.warn('Workflow items subscription note:', err);
+    }
+  }
+
+  /**
+   * Real-time listener for Student Transfers
+   */
+  private subscribeStudentTransfers() {
+    try {
+      const q = collection(db, 'studentTransfers');
+      onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const transfers: StudentTransferReport[] = [];
+            snapshot.forEach((d) => {
+              transfers.push(d.data() as StudentTransferReport);
+            });
+            const activeYear = storageService.getActiveSchoolYear();
+            this.isRemoteUpdate = true;
+            storageService.saveStudentTransfers(transfers, activeYear);
+            this.isRemoteUpdate = false;
+            this.notifyDataChanged();
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'studentTransfers');
+        }
+      );
+    } catch (err) {
+      console.warn('Student transfers subscription note:', err);
+    }
+  }
+
+  /**
+   * Real-time listener for Student Absences
+   */
+  private subscribeStudentAbsences() {
+    try {
+      const q = collection(db, 'studentAbsences');
+      onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const absences: StudentAbsenceRequest[] = [];
+            snapshot.forEach((d) => {
+              absences.push(d.data() as StudentAbsenceRequest);
+            });
+            const activeYear = storageService.getActiveSchoolYear();
+            this.isRemoteUpdate = true;
+            storageService.saveStudentAbsences(absences, activeYear);
+            this.isRemoteUpdate = false;
+            this.notifyDataChanged();
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'studentAbsences');
+        }
+      );
+    } catch (err) {
+      console.warn('Student absences subscription note:', err);
+    }
+  }
+
+  /**
+   * Real-time listener for Cashbook
+   */
+  private subscribeCashbook() {
+    try {
+      const q = collection(db, 'cashbookEntries');
+      onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const entries: CashbookEntry[] = [];
+            snapshot.forEach((d) => {
+              entries.push(d.data() as CashbookEntry);
+            });
+            const activeYear = storageService.getActiveSchoolYear();
+            this.isRemoteUpdate = true;
+            storageService.saveCashbookEntries(entries, activeYear);
+            this.isRemoteUpdate = false;
+            this.notifyDataChanged();
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'cashbookEntries');
+        }
+      );
+    } catch (err) {
+      console.warn('Cashbook subscription note:', err);
+    }
+  }
+
+  /**
+   * Real-time listener for Feedbacks
+   */
+  private subscribeFeedbacks() {
+    try {
+      const q = collection(db, 'feedbacks');
+      onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const feedbacks: SchoolFeedbackItem[] = [];
+            snapshot.forEach((d) => {
+              feedbacks.push(d.data() as SchoolFeedbackItem);
+            });
+            const activeYear = storageService.getActiveSchoolYear();
+            this.isRemoteUpdate = true;
+            storageService.saveFeedbacks(feedbacks, activeYear);
+            this.isRemoteUpdate = false;
+            this.notifyDataChanged();
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'feedbacks');
+        }
+      );
+    } catch (err) {
+      console.warn('Feedbacks subscription note:', err);
+    }
+  }
+
+  /**
+   * Real-time listener for Public Articles
+   */
+  private subscribePublicArticles() {
+    try {
+      const q = collection(db, 'publicArticles');
+      onSnapshot(
+        q,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const articles: SchoolPublicArticle[] = [];
+            snapshot.forEach((d) => {
+              articles.push(d.data() as SchoolPublicArticle);
+            });
+            const activeYear = storageService.getActiveSchoolYear();
+            this.isRemoteUpdate = true;
+            storageService.savePublicArticles(articles, activeYear);
+            this.isRemoteUpdate = false;
+            this.notifyDataChanged();
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'publicArticles');
+        }
+      );
+    } catch (err) {
+      console.warn('Public articles subscription note:', err);
     }
   }
 
@@ -389,7 +698,7 @@ class CloudSyncService {
   }
 
   /**
-   * Hiệu trưởng duyệt hoặc từ chối đơn nghỉ phép trên Cloud
+   * Ban Giám hiệu (HT hoặc PHT phụ trách phân hiệu) duyệt nghỉ phép
    */
   public async approveLeaveRequest(
     leaveId: string,
@@ -402,12 +711,17 @@ class CloudSyncService {
     const target = currentLeaves.find((l) => l.id === leaveId);
     if (!target) return false;
 
+    const approverRoleTitle = approver.role === 'HT' ? 'Hiệu trưởng' : 'Phó Hiệu trưởng';
     const updatedLeave: LeaveRequest = {
       ...target,
       status,
       approvedBy: approver.name,
       approvalDate: new Date().toISOString().split('T')[0],
-      approvalComment: approvalComment || (status === 'Đã phê duyệt' ? 'Hiệu trưởng phê chuẩn' : 'Chưa phù hợp kế hoạch'),
+      approvalComment:
+        approvalComment ||
+        (status === 'Đã phê duyệt'
+          ? `${approverRoleTitle} ${approver.name} phê chuẩn.`
+          : 'Chưa phù hợp kế hoạch giảng dạy.'),
     };
 
     const nextList = currentLeaves.map((l) => (l.id === leaveId ? updatedLeave : l));
@@ -420,8 +734,8 @@ class CloudSyncService {
     }
 
     storageService.addSyncLog(
-      status === 'Đã phê duyệt' ? 'HT Phê duyệt nghỉ phép' : 'HT Từ chối nghỉ phép',
-      `Hiệu trưởng ${approver.name} đã ${status === 'Đã phê duyệt' ? 'phê duyệt' : 'từ chối'} đơn nghỉ phép của ${target.userName} (${target.startDate} đến ${target.endDate})`
+      status === 'Đã phê duyệt' ? `${approverRoleTitle} phê duyệt nghỉ phép` : `${approverRoleTitle} từ chối nghỉ phép`,
+      `${approverRoleTitle} ${approver.name} đã ${status === 'Đã phê duyệt' ? 'phê duyệt' : 'từ chối'} đơn nghỉ phép của ${target.userName} (${target.startDate} đến ${target.endDate})`
     );
 
     this.notifyDataChanged();
